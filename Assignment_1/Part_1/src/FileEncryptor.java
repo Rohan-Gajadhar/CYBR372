@@ -1,15 +1,14 @@
-package com.packtpub.crypto.section5;
-
-import com.packtpub.crypto.Util;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
@@ -49,30 +48,33 @@ public class FileEncryptor {
                 System.out.println("Invalid mode");
             }
         } catch (Exception e){
-            System.out.println("Invalid arguments");
+            System.out.println("Invalid arguments" + e);
         }
     }
-    public static void encryption(String inputFile, String outputFile) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IOException {
 
-    
-        //This snippet is literally copied from SymmetrixExample
+    public static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X ", b));
+        }
+        return sb.toString();
+    }
+
+    public static void encryption(String inputFile, String outputFile) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IOException {
         SecureRandom sr = new SecureRandom();
         byte[] key = new byte[16];
         sr.nextBytes(key); // 128 bit key
         byte[] initVector = new byte[16];
         sr.nextBytes(initVector); // 16 bytes IV
-        System.out.println("Random key=" + Util.bytesToHex(key));
-        System.out.println("initVector=" + Util.bytesToHex(initVector));
+        System.out.println("Secret key is: " + Base64.getEncoder().encodeToString(key));
+        System.out.println("IV is: " + Base64.getEncoder().encodeToString(initVector));
         IvParameterSpec iv = new IvParameterSpec(initVector);
         SecretKeySpec skeySpec = new SecretKeySpec(key, ALGORITHM);
         Cipher cipher = Cipher.getInstance(CIPHER);
         cipher.init(Cipher.ENCRYPT_MODE, skeySpec, iv);
-
-        //Look for files here
-        final Path tempDir = Files.createTempDirectory("packt-crypto");
         
-        final Path encryptedPath = tempDir.resolve("1 - Encrypting and Decrypting files.pptx.encrypted");
-        try (InputStream fin = FileEncryptor.class.getResourceAsStream("1 - Encrypting and Decrypting files.pptx");
+        final Path encryptedPath = Paths.get(outputFile);
+        try (InputStream fin = FileEncryptor.class.getResourceAsStream(inputFile);
                 OutputStream fout = Files.newOutputStream(encryptedPath);
                 CipherOutputStream cipherOut = new CipherOutputStream(fout, cipher) {
         }) {
@@ -86,10 +88,19 @@ public class FileEncryptor {
         
         LOG.info("Encryption finished, saved at " + encryptedPath);
     }
+
     public static void decryption(String base64SecretKey, String base64IV, String inputFile, String outputFile) throws Exception {
-        
-        cipher.init(Cipher.DECRYPT_MODE, skeySpec, iv);
-        final Path decryptedPath = tempDir.resolve("1 - Encrypting and Decrypting files_decrypted.pptx");
+        byte [] base64skey = Base64.getDecoder().decode(base64SecretKey);
+        byte [] base64iv = Base64.getDecoder().decode(base64IV);
+
+        SecretKeySpec skey = new SecretKeySpec(base64skey, ALGORITHM);
+        IvParameterSpec iv = new IvParameterSpec(base64iv);
+
+        Cipher cipher = Cipher.getInstance(CIPHER);
+        cipher.init(Cipher.DECRYPT_MODE, skey, iv);
+
+        final Path encryptedPath = Paths.get(inputFile);
+        final Path decryptedPath = Paths.get(outputFile);
         try(InputStream encryptedData = Files.newInputStream(encryptedPath);
                 CipherInputStream decryptStream = new CipherInputStream(encryptedData, cipher);
                 OutputStream decryptedOut = Files.newOutputStream(decryptedPath)){
@@ -103,4 +114,5 @@ public class FileEncryptor {
         
         LOG.info("Decryption complete, open " + decryptedPath);
     }
+
 }

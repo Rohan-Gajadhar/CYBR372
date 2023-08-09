@@ -1,1 +1,15 @@
 .DS_Store
+Assignment_1/Part_1/.vscode/launch.json
+Assignment_1/Part_1/.vscode/settings.json
+Assignment_1/Part_1/README.md
+Assignment_1/Part_1/bin/ciphertext.enc
+Assignment_1/Part_1/bin/FileEncryptor.class
+Assignment_1/Part_1/bin/FileEncryptor$1.class
+Assignment_1/Part_1/bin/plaintext1.txt
+Assignment_1/Part_1/bin/plaintext.txt
+.gitignore
+Assignment_1/Part_1/src/plaintext.txt
+.gitignore
+Assignment_1/Part_1/src/ciphertext.enc
+Assignment_1/Part_1/src/plaintext1.txt
+Assignment_1/Part_1/Util.java
