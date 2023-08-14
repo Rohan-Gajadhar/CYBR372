@@ -1,3 +1,5 @@
+package Part1;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -52,10 +54,10 @@ public class FileEncryptor {
         // catch all other exceptions and print blanket error message
         } catch (Exception e){
             if(mode.equals("enc")) {
-                System.out.println("Invalid arguments, use the format: java FileEncryptor <mode> <inputFile> <outputFile>");
+                System.out.println("Invalid arguments, use the format: java Part1/FileEncryptor.java <mode> <inputFile> <outputFile>");
             }
             else if(mode.equals("dec")) {
-                System.out.println("Invalid arguments, use the format: java FileEncryptor <mode> <base64SecretKey> <base64IV> <inputFile> <outputFile>");
+                System.out.println("Invalid arguments, use the format: java Part1/FileEncryptor.java <mode> <base64SecretKey> <base64IV> <inputFile> <outputFile>");
             }
         }
     }
@@ -71,7 +73,7 @@ public class FileEncryptor {
         Cipher cipher = Cipher.getInstance(CIPHER); // create Cipher object using the specified cipher algorithm
         cipher.init(Cipher.ENCRYPT_MODE, skeySpec, iv); // intialize cipher in encryption mode with the specified key and IV
         
-        final Path encryptedPath = Paths.get(outputFile); // path to the encrypted file after encryption
+        final Path encryptedPath = Paths.get("Part1", outputFile); // path to the encrypted file after encryption
         try (InputStream fin = FileEncryptor.class.getResourceAsStream(inputFile); // locates input file eg: plaintext.txt
                 OutputStream fout = Files.newOutputStream(encryptedPath); // creates and writes to output file eg: ciphertext.enc
                 CipherOutputStream cipherOut = new CipherOutputStream(fout, cipher) { // encrypts data before writing to output file
@@ -99,8 +101,8 @@ public class FileEncryptor {
         Cipher cipher = Cipher.getInstance(CIPHER); // create Cipher object using the specified cipher algorithm
         cipher.init(Cipher.DECRYPT_MODE, skey, iv); // intialize cipher in decryption mode with the specified key and IV
 
-        final Path encryptedPath = Paths.get(inputFile);
-        final Path decryptedPath = Paths.get(outputFile);
+        final Path encryptedPath = Paths.get("Part1", inputFile);
+        final Path decryptedPath = Paths.get("Part1", outputFile);
         try(InputStream encryptedData = Files.newInputStream(encryptedPath);
                 CipherInputStream decryptStream = new CipherInputStream(encryptedData, cipher);
                 OutputStream decryptedOut = Files.newOutputStream(decryptedPath)){

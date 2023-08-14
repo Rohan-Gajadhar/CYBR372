@@ -34,9 +34,10 @@ public class FileEncryptor {
         // args[0] determines wether to run in encryption or decryption mode
         try{
             if(mode.equals("enc")){
-                String inputFile = args[1];
-                String outputFile = args[2];
-                encryption(inputFile, outputFile);
+                String b64SKey = args[1];
+                String inputFile = args[2];
+                String outputFile = args[3];
+                encryption(b64SKey, inputFile, outputFile);
             }
             else if(mode.equals("dec")){
                 String base64SecretKey = args[1];
@@ -49,43 +50,47 @@ public class FileEncryptor {
             else{
                 System.out.println("Invalid mode, please use 'enc' or 'dec'");
             }
-        // catch all other exceptions and print blanket error message
         } catch (Exception e){
-            if(mode.equals("enc")) {
-                System.out.println("Invalid arguments, use the format: java FileEncryptor <mode> <inputFile> <outputFile>");
-            }
-            else if(mode.equals("dec")) {
-                System.out.println("Invalid arguments, use the format: java FileEncryptor <mode> <base64SecretKey> <base64IV> <inputFile> <outputFile>");
-            }
+            System.out.println("Invalid arguments" + e);
         }
     }
 
-    public static void encryption(String inputFile, String outputFile) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IOException {
-        SecureRandom sr = new SecureRandom(); // SecureRandom is a cryptographically strong random number generator, instead of 'java.lang.Random'
-        byte[] key = new byte[16]; //create 16 byte, byte array to hold key
-        sr.nextBytes(key); // generate a 128 bit key using SecureRandom
-        byte[] initVector = new byte[16]; //create 16 byte, byte array to hold
-        sr.nextBytes(initVector); // generate a 128 bit IV using SecureRandom
-        IvParameterSpec iv = new IvParameterSpec(initVector); // create IvParameterSpec object using iv byte array to be used in cipher encryption intialisation
-        SecretKeySpec skeySpec = new SecretKeySpec(key, ALGORITHM); // create SecretKeySpec object using key byte array to be used in cipher encryption intialisation
-        Cipher cipher = Cipher.getInstance(CIPHER); // create Cipher object using the specified cipher algorithm
-        cipher.init(Cipher.ENCRYPT_MODE, skeySpec, iv); // intialize cipher in encryption mode with the specified key and IV
+    //skey for testing: LDtaZzoKrjAldoqUn473DA==
+
+    public static void encryption(String skey, String inputFile, String outputFile) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IOException {
+        SecureRandom sr = new SecureRandom();
+
+        byte[] key = new byte[16];
+        key = Base64.getDecoder().decode(skey); //decode the user specified base64 key to byte array
+
+        byte[] initVector = new byte[16]; 
+        sr.nextBytes(initVector);
+
+        IvParameterSpec iv = new IvParameterSpec(initVector);
+        SecretKeySpec skeySpec = new SecretKeySpec(key, ALGORITHM);
+
+        System.out.println("initVector: " + initVector); //print the IV to the console
+        System.out.println("IVParamSpec: " + iv.toString());
+        System.out.println("for testing, secret key: " + skey);
+
+        Cipher cipher = Cipher.getInstance(CIPHER);
+        cipher.init(Cipher.ENCRYPT_MODE, skeySpec, iv);
         
-        final Path encryptedPath = Paths.get(outputFile); // path to the encrypted file after encryption
-        try (InputStream fin = FileEncryptor.class.getResourceAsStream(inputFile); // locates input file eg: plaintext.txt
-                OutputStream fout = Files.newOutputStream(encryptedPath); // creates and writes to output file eg: ciphertext.enc
-                CipherOutputStream cipherOut = new CipherOutputStream(fout, cipher) { // encrypts data before writing to output file
+        final Path encryptedPath = Paths.get(outputFile);
+        try (InputStream fin = FileEncryptor.class.getResourceAsStream(inputFile);
+                OutputStream fout = Files.newOutputStream(encryptedPath);
+                CipherOutputStream cipherOut = new CipherOutputStream(fout, cipher) { 
         }) {
             final byte[] bytes = new byte[1024];
+            //add the iv to the start of the encrypted file
+            fout.write(initVector);
             for(int length=fin.read(bytes); length!=-1; length = fin.read(bytes)){
                 cipherOut.write(bytes, 0, length);
             }
         } catch (IOException e) {
             LOG.log(Level.INFO, "Unable to encrypt", e);
         }
-        // print secret key and iv after try block to ensure they are not printed if an exception is thrown
-        System.out.println("Secret key is: " + Base64.getEncoder().encodeToString(key)); // encodes the key to a string using Base64 encoding
-        System.out.println("IV is: " + Base64.getEncoder().encodeToString(initVector)); // encodes the IV to a string using Base64 encoding
+        
         LOG.info("Encryption finished, saved at " + encryptedPath);
     }
 
