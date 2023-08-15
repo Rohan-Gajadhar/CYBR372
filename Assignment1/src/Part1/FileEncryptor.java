@@ -6,9 +6,9 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
+//import java.security.InvalidAlgorithmParameterException;
+//import java.security.InvalidKeyException;
+//import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.logging.Level;
@@ -16,7 +16,7 @@ import java.util.logging.Logger;
 import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
-import javax.crypto.NoSuchPaddingException;
+//import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -30,17 +30,16 @@ public class FileEncryptor {
     private static final String ALGORITHM = "AES";
     private static final String CIPHER = "AES/CBC/PKCS5PADDING";
 
-    public static void main(String[] args) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IOException {
-        String mode = args[0];
+    public static void main(String[] args) throws Exception {
 
         // args[0] determines wether to run in encryption or decryption mode
         try{
-            if(mode.equals("enc")){
+            if(args[0].equals("enc")){
                 String inputFile = args[1];
                 String outputFile = args[2];
                 encryption(inputFile, outputFile);
             }
-            else if(mode.equals("dec")){
+            else if(args[0].equals("dec")){
                 String base64SecretKey = args[1];
                 String base64IV = args[2];
                 String inputFile = args[3];
@@ -51,18 +50,18 @@ public class FileEncryptor {
             else{
                 System.out.println("Invalid mode, please use 'enc' or 'dec'");
             }
-        // catch all other exceptions and print blanket error message
+        // catch all other exceptions and prints blanket error message
         } catch (Exception e){
-            if(mode.equals("enc")) {
+            if(args[0].equals("enc")) {
                 System.out.println("Invalid arguments, use the format: java Part1/FileEncryptor.java <mode> <inputFile> <outputFile>");
             }
-            else if(mode.equals("dec")) {
+            else if(args[0].equals("dec")) {
                 System.out.println("Invalid arguments, use the format: java Part1/FileEncryptor.java <mode> <base64SecretKey> <base64IV> <inputFile> <outputFile>");
             }
         }
     }
 
-    public static void encryption(String inputFile, String outputFile) throws NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, InvalidAlgorithmParameterException, IOException {
+    public static void encryption(String inputFile, String outputFile) throws Exception {
         SecureRandom sr = new SecureRandom(); // SecureRandom is a cryptographically strong random number generator, instead of 'java.lang.Random'
         byte[] key = new byte[16]; //create 16 byte, byte array to hold key
         sr.nextBytes(key); // generate a 128 bit key using SecureRandom
