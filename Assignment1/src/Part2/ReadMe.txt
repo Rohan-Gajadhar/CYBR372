@@ -2,7 +2,7 @@ TO ENCRYPT:
 Ensure there is a .txt file in src/Part2 to be encrypted
 You will need to enter a Base64 secret key as a command line argument to encrypt the file.
 
-Here is an example secret key that was used while testing: 
+Here is an example base64 secret key that was used while testing: 
 LDtaZzoKrjAldoqUn473DA==
 
 Example: to encrypt the file "plaintext.txt" to an encrypted file "ciphertext.enc" run the command:
