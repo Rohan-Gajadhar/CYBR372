@@ -1,4 +1,9 @@
 import java.net.*;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.io.*;
 
 public class EchoServer {
@@ -54,9 +59,29 @@ public class EchoServer {
 
     }
 
+        public static void keyPairGeneration(){
+        try{
+            //generate key pair
+            final KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
+            keyGen.initialize(2048);
+            final KeyPair key = keyGen.generateKeyPair();
+
+            //get public and private keys
+            final PublicKey publicKey = key.getPublic();
+            final PrivateKey privateKey = key.getPrivate();
+
+            //print public key
+            System.out.println("Public Key: " + publicKey);
+            System.out.println("Private Key: " + privateKey);
+        } catch (NoSuchAlgorithmException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
     public static void main(String[] args) {
         EchoServer server = new EchoServer();
         server.start(4444);
+        keyPairGeneration();
     }
 
 }
