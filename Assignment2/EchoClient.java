@@ -1,11 +1,8 @@
 import java.io.*;
 import java.net.*;
-import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.Signature;
+import java.security.*;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.Scanner;
 
 import javax.crypto.Cipher;
@@ -17,7 +14,6 @@ public class EchoClient {
     private DataInputStream in;
     private static final String CIPHER = "RSA/ECB/PKCS1Padding";
     private static final String SIGNATURE_ALGORITHM = "SHA512withRSA";
-    private static KeyPair kp = null;
 
     /**
      * Setup the two way streams.
@@ -41,7 +37,6 @@ public class EchoClient {
         Scanner scan = new Scanner(System.in);
         System.out.println("Enter a key length (eg: 1024, 2048, 4096)");
         int keyLength = scan.nextInt();
-        scan.close();
 
         //generate key pair
         final KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
@@ -53,7 +48,8 @@ public class EchoClient {
         final PrivateKey privateKey = key.getPrivate();
 
         //print public key
-        //System.out.println("Public Key: " + publicKey);
+        System.out.println("Public Key: " + publicKey);
+        System.out.println(Base64.getEncoder().encodeToString(publicKey.getEncoded()));
 
         return key;
     }
@@ -65,22 +61,34 @@ public class EchoClient {
      */
     public String sendMessage(String msg) {
         try {
+            Scanner scan = new Scanner(System.in);
+            KeyPair encryptionKP = keyPairGeneration();
+            KeyPair signatureKP = keyPairGeneration();
+
+            System.out.println("Enter EchoServer public key: ");
+            String echoServerPublicKey = scan.nextLine();
+
+            byte[] encodedServerPublicKey = Base64.getDecoder().decode(echoServerPublicKey);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            PublicKey serverPublickKey = kf.generatePublic(new X509EncodedKeySpec(encodedServerPublicKey));
+
+            System.out.println(Base64.getEncoder().encodeToString(serverPublickKey.getEncoded()));
+
             System.out.println("Client sending cleartext "+msg);
             byte[] data = msg.getBytes("UTF-8");
             
             //encrypt message
             Cipher cipher = Cipher.getInstance(CIPHER);
-            cipher.init(Cipher.ENCRYPT_MODE, kp.getPublic());
+            cipher.init(Cipher.ENCRYPT_MODE, serverPublickKey);
             data = cipher.doFinal(data);
-            System.out.println("Client sending ciphertext before sig "+Util.bytesToHex(data));
+            System.out.println("Client sending ciphertext"+Util.bytesToHex(data));
 
             //sign message
-            Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
-            sig.initSign(kp.getPrivate());
+            /*Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
+            sig.initSign(signatureKP.getPrivate());
             sig.update(data);
-            byte[] signature = sig.sign();
+            byte[] signature = sig.sign();*/
             
-            System.out.println("Client sending ciphertext after sig"+Util.bytesToHex(data));
             out.write(data);
             out.flush();
             in.read(data);
@@ -113,7 +121,6 @@ public class EchoClient {
     public static void main(String[] args) throws NoSuchAlgorithmException {
         EchoClient client = new EchoClient();
         client.startConnection("127.0.0.1", 4444);
-        kp = keyPairGeneration();
         client.sendMessage("12345678");
         //client.sendMessage("ABCDEFGH");
         //client.sendMessage("87654321");
