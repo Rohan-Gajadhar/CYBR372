@@ -62,7 +62,7 @@ public class EchoClient {
     public String sendMessage(String msg) {
         try {
             Scanner scan = new Scanner(System.in);
-            KeyPair encryptionKP = keyPairGeneration();
+            KeyPair encryptDecryptKP = keyPairGeneration();
             KeyPair signatureKP = keyPairGeneration();
 
             System.out.println("Enter EchoServer public key: ");
@@ -70,31 +70,64 @@ public class EchoClient {
 
             byte[] encodedServerPublicKey = Base64.getDecoder().decode(echoServerPublicKey);
             KeyFactory kf = KeyFactory.getInstance("RSA");
-            PublicKey serverPublickKey = kf.generatePublic(new X509EncodedKeySpec(encodedServerPublicKey));
+            PublicKey serverPublicKey = kf.generatePublic(new X509EncodedKeySpec(encodedServerPublicKey));
 
-            System.out.println(Base64.getEncoder().encodeToString(serverPublickKey.getEncoded()));
+            //  System.out.println(Base64.getEncoder().encodeToString(serverPublicKey.getEncoded()));
 
-            System.out.println("Client sending cleartext "+msg);
+            System.out.println("Client sending cleartext " + msg);
             byte[] data = msg.getBytes("UTF-8");
-            
+
             //encrypt message
             Cipher cipher = Cipher.getInstance(CIPHER);
-            cipher.init(Cipher.ENCRYPT_MODE, serverPublickKey);
+            cipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
             data = cipher.doFinal(data);
-            System.out.println("Client sending ciphertext"+Util.bytesToHex(data));
+            System.out.println("Client sending ciphertext" + Util.bytesToHex(data));
 
             //sign message
-            /*Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
+            Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
             sig.initSign(signatureKP.getPrivate());
             sig.update(data);
-            byte[] signature = sig.sign();*/
-            
-            out.write(data);
+            byte[] signature = sig.sign();
+            byte[] combined = new byte[data.length + signature.length];
+            System.arraycopy(data, 0, combined, 0, data.length);
+            System.arraycopy(signature, 0, combined, data.length, signature.length);
+            out.write(combined);
             out.flush();
-            in.read(data);
+            //in.read(combined);
+
             // decrypt data
-            String reply = new String(data, "UTF-8");
-            System.out.println("Server returned cleartext "+reply);
+            byte[] decryptedData = new byte[512];
+            byte[] ciphertext = new byte[256];
+            byte[] verifySignature = new byte[256];
+            int numBytes;
+            String reply = null;
+            while ((numBytes = in.read(decryptedData)) != -1) {
+                // decrypt data
+                System.arraycopy(decryptedData, 0, ciphertext, 0, 256);
+                System.arraycopy(decryptedData, 256, verifySignature, 0, 256);
+                cipher.init(Cipher.DECRYPT_MODE, encryptDecryptKP.getPrivate());
+                byte[] decrypted = cipher.doFinal(ciphertext);
+                reply = new String(decrypted, "UTF-8");
+                System.out.println("Server returned cleartext " + reply);
+
+                //read in and create client signature public key
+                System.out.println("Enter server signature public key: ");
+                String serverSignaturePublicKey = scan.nextLine();
+                byte[] encodedServerSignaturePublicKey = Base64.getDecoder().decode(serverSignaturePublicKey);
+                PublicKey signaturePublicKey = kf.generatePublic(new X509EncodedKeySpec(encodedServerSignaturePublicKey));
+
+                //verify signature
+                Signature verifySig = Signature.getInstance(SIGNATURE_ALGORITHM);
+                verifySig.initVerify(signaturePublicKey);
+                verifySig.update(ciphertext);
+                boolean verified = verifySig.verify(verifySignature);
+                if (verified) {
+                    System.out.println("Signature was verified!");
+                } else {
+                    System.out.println("Signature was unable to be verified.");
+                }
+                break;
+            }
             return reply;
         } catch (Exception e) {
             System.out.println(e.getMessage());
