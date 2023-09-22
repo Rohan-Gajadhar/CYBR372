@@ -33,7 +33,7 @@ public class EchoClient {
         }
     }
 
-    public static KeyPair keyPairGeneration() throws NoSuchAlgorithmException{
+    public static KeyPair keyPairGeneration(String keyPairName) throws NoSuchAlgorithmException{
         //user enters desired key length
         Scanner scan = new Scanner(System.in);
         System.out.println("Enter a key length (eg: 1024, 2048, 4096)");
@@ -48,8 +48,8 @@ public class EchoClient {
         final PublicKey publicKey = key.getPublic();
 
         //print public key
-        System.out.println("Public Key: " + publicKey);
-        System.out.println(Base64.getEncoder().encodeToString(publicKey.getEncoded()));
+        System.out.println("\n" + keyPairName + " Public Key:\n" + publicKey + "\n");
+        System.out.println(keyPairName + " Public Key:\n" + Base64.getEncoder().encodeToString(publicKey.getEncoded()) + "\n");
 
         return key;
     }
@@ -62,13 +62,11 @@ public class EchoClient {
             //write public key
             FileOutputStream fos = new FileOutputStream("Assignment2/" + keyPairName + "ClientPublicKey.key");
             fos.write(encodedPublicKey.getEncoded());
-            fos.flush();
             fos.close();
 
             //write private key
             fos = new FileOutputStream("Assignment2/" + keyPairName + "ClientPrivateKey.key");
             fos.write(encodedPrivateKey.getEncoded());
-            fos.flush();
             fos.close();
         } catch (IOException e) {
             System.out.println(e);
@@ -110,8 +108,8 @@ public class EchoClient {
     public String sendMessage(String msg) {
         try {
             //generate two key-pairs
-            KeyPair encryptDecryptKP = keyPairGeneration();
-            KeyPair signatureKP = keyPairGeneration();
+            KeyPair encryptDecryptKP = keyPairGeneration("Client Encrypt/Decrypt");
+            KeyPair signatureKP = keyPairGeneration("Client Signature");
 
             //save client keys to file
             saveKeyPair(encryptDecryptKP, "EncryptDecrypt");
@@ -121,14 +119,14 @@ public class EchoClient {
             KeyPair serverEncryptDecryptKP = loadKeyPair("EncryptDecrypt");
             KeyPair serverSignatureKP = loadKeyPair("Signature");
 
-            System.out.println("Client sending cleartext " + msg);
+            System.out.println("Client sending cleartext: " + msg);
             byte[] data = msg.getBytes("UTF-8");
 
             //encrypt message
             Cipher cipher = Cipher.getInstance(CIPHER);
             cipher.init(Cipher.ENCRYPT_MODE, serverEncryptDecryptKP.getPublic());
             data = cipher.doFinal(data);
-            System.out.println("Client sending ciphertext" + Util.bytesToHex(data));
+            System.out.println("Client sending ciphertext: " + Util.bytesToHex(data));
 
             //sign message
             Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
@@ -140,48 +138,40 @@ public class EchoClient {
             System.arraycopy(signature, 0, combined, data.length, signature.length);
             out.write(combined);
             out.flush();
-            //in.read(combined);
 
             // decrypt data
+
             byte[] decryptedData = new byte[512];
             byte[] ciphertext = new byte[256];
             byte[] verifySignature = new byte[256];
             int numBytes;
             String reply = null;
             while ((numBytes = in.read(decryptedData)) != -1) {
-                Scanner scan = new Scanner(System.in);
-                KeyFactory kf = KeyFactory.getInstance("RSA");
                 // decrypt data
                 System.arraycopy(decryptedData, 0, ciphertext, 0, 256);
                 System.arraycopy(decryptedData, 256, verifySignature, 0, 256);
+                System.out.println("\nServer returned ciphertext: " + Util.bytesToHex(ciphertext));
                 cipher.init(Cipher.DECRYPT_MODE, encryptDecryptKP.getPrivate());
-                byte[] decrypted = cipher.doFinal(ciphertext);
-                reply = new String(decrypted, "UTF-8");
-                System.out.println("Server returned cleartext " + reply);
-
-                //read in and create client signature public key
-                System.out.println("Enter server signature public key: ");
-                String serverSignaturePublicKey = scan.nextLine();
-                byte[] encodedServerSignaturePublicKey = Base64.getDecoder().decode(serverSignaturePublicKey);
-                PublicKey signaturePublicKey = kf.generatePublic(new X509EncodedKeySpec(encodedServerSignaturePublicKey));
+                byte[] decryptedCiphertext = cipher.doFinal(ciphertext);
+                reply = new String(decryptedCiphertext, "UTF-8");
+                System.out.println("Server returned cleartext: " + reply);
 
                 //verify signature
                 Signature verifySig = Signature.getInstance(SIGNATURE_ALGORITHM);
-                verifySig.initVerify(signaturePublicKey);
+                verifySig.initVerify(serverSignatureKP.getPublic());
                 verifySig.update(ciphertext);
                 boolean verified = verifySig.verify(verifySignature);
                 if (verified) {
-                    System.out.println("Signature was verified!");
+                    System.out.println("\nSignature was verified!");
                 } else {
-                    System.out.println("Signature was unable to be verified.");
+                    System.out.println("\nSignature was unable to be verified.");
                 }
-                break;
             }
-            return reply;
         } catch (Exception e) {
             System.out.println(e.getMessage());
             return null;
         }
+        return msg;
     }
 
     /**
