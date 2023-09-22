@@ -94,14 +94,58 @@ public class EchoServer {
         return new KeyPair(publicKey, privateKey);
     }
 
+    public static byte[] encryption(byte[] data, PublicKey publicKey) throws Exception {
+        System.out.println("Server sending cleartext: " + new String(data, "UTF-8"));
+        Cipher cipher = Cipher.getInstance(CIPHER);
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey);
+        data = cipher.doFinal(data);
+        System.out.println("Server sending ciphertext: " + Util.bytesToHex(data));
+        return data;
+    }
+
+    public static byte[] sign(byte[] data, PrivateKey privateKey) throws Exception {
+        Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
+        sig.initSign(privateKey);
+        sig.update(data);
+        return sig.sign();
+    }
+
+    public static byte[] concatenateDataAndSignature(byte[] data, byte[] signature) {
+        byte[] message = new byte[data.length + signature.length];
+        System.arraycopy(data, 0, message, 0, data.length);
+        System.arraycopy(signature, 0, message, data.length, signature.length);
+        return message;
+    }
+
+
+    public byte[] decrypt(byte[] message, PrivateKey privateKey) throws Exception {
+        System.out.println("\nServer returned ciphertext: " + Util.bytesToHex(message));
+        Cipher cipher = Cipher.getInstance(CIPHER);
+        cipher.init(Cipher.DECRYPT_MODE, privateKey);
+        message = cipher.doFinal(message);
+        System.out.println("Server returned cleartext: " + new String(message, "UTF-8"));
+        return message;
+    }
+
+    public void verifySignature(byte[] message, byte[] signature, PublicKey publicKey) throws Exception {
+        Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
+        sig.initVerify(publicKey);
+        sig.update(message);
+        boolean verified = sig.verify(signature);
+        if (verified) {
+            System.out.println("\nSignature was verified!");
+        } else {
+            System.out.println("\nSignature was unable to be verified.");
+        }
+    }
+
     /**
      * Create the server socket and wait for a connection.
      * Keep receiving messages until the input stream is closed by the client.
      *
      * @param port the port number of the server
      */
-    public void start(int port) {
-        try {
+    public void start(int port) throws Exception{
             KeyPair encryptDecryptKP = keyPairGeneration("Server Encrypt/Decrypt");
             KeyPair signatureKP = keyPairGeneration("Server Signature");
 
@@ -114,59 +158,29 @@ public class EchoServer {
             out = new DataOutputStream(clientSocket.getOutputStream());
             in = new DataInputStream(clientSocket.getInputStream());
 
-
-
-            byte[] data = new byte[512]; //to hold all received data
-            byte[] ciphertext = new byte[256]; //to hold the ciphertext
-            byte[] verifySignature = new byte[256]; //to hold the signature
-            Cipher cipher = Cipher.getInstance(CIPHER);
-
+            // decrypt data
+            byte[] receivingData = new byte[512];
+            byte[] message = new byte[256];
+            byte[] clientSignature = new byte[256];
             int numBytes;
-            while ((numBytes = in.read(data)) != -1) {
+
+            while ((numBytes = in.read(receivingData)) != -1) {
                 //load client keys from file
                 KeyPair clientEncryptDecryptKP = loadKeyPair("EncryptDecrypt");
                 KeyPair clientSignatureKP = loadKeyPair("Signature");
-
-                //splits data into ciphertext and signature arrays
-                System.arraycopy(data, 0, ciphertext, 0, 256);
-                System.arraycopy(data, 256, verifySignature, 0, 256);
-                System.out.println("Server received ciphertext: "+Util.bytesToHex(ciphertext));
                 //decrypt data
-                cipher.init(Cipher.DECRYPT_MODE, encryptDecryptKP.getPrivate());
-                byte[] decryptedCiphertext = cipher.doFinal(ciphertext);
-                String msg = new String(decryptedCiphertext, "UTF-8");
-                System.out.println("Server received cleartext: "+msg);
+                System.arraycopy(receivingData, 0, message, 0, 256);
+                System.arraycopy(receivingData, 256, clientSignature, 0, 256);
+                byte[] sendingData = decrypt(message, encryptDecryptKP.getPrivate());
+                verifySignature(message, clientSignature, clientSignatureKP.getPublic());
 
-                //verify signature
-                Signature verifySig = Signature.getInstance(SIGNATURE_ALGORITHM);
-                verifySig.initVerify(clientSignatureKP.getPublic());
-                verifySig.update(ciphertext);
-                boolean verified = verifySig.verify(verifySignature);
-                if(verified){System.out.println("\nSignature was verified!");}
-                else{System.out.println("\nSignature was unable to be verified.");}
-
-
-                // encrypt response (this is just the decrypted data re-encrypted)
-                System.out.println("\nServer sending cleartext: "+msg);
-                cipher.init(Cipher.ENCRYPT_MODE, clientEncryptDecryptKP.getPublic());
-                data = cipher.doFinal(decryptedCiphertext);
-                System.out.println("Server sending ciphertext: "+Util.bytesToHex(data));
-
-                //sign message
-                Signature sig = Signature.getInstance(SIGNATURE_ALGORITHM);
-                sig.initSign(signatureKP.getPrivate());
-                sig.update(data);
-                byte[] signature = sig.sign();
-                byte[] combined = new byte[data.length + signature.length];
-                System.arraycopy(data, 0, combined, 0, data.length);
-                System.arraycopy(signature, 0, combined, data.length, signature.length);
-                out.write(combined);
+                sendingData = encryption(sendingData, clientEncryptDecryptKP.getPublic());
+                byte[] serverSignature = sign(sendingData, signatureKP.getPrivate());
+                sendingData = concatenateDataAndSignature(sendingData, serverSignature);
+                out.write(sendingData);
                 out.flush();
             }
             stop();
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
     }
 
     /**
@@ -187,7 +201,7 @@ public class EchoServer {
 
 
 
-    public static void main(String[] args){
+    public static void main(String[] args) throws Exception{
         EchoServer server = new EchoServer();
         server.start(4444);
     }
