@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.security.*;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Scanner;
@@ -45,13 +46,60 @@ public class EchoClient {
 
         //get public and private keys
         final PublicKey publicKey = key.getPublic();
-        final PrivateKey privateKey = key.getPrivate();
 
         //print public key
         System.out.println("Public Key: " + publicKey);
         System.out.println(Base64.getEncoder().encodeToString(publicKey.getEncoded()));
 
         return key;
+    }
+
+    public static void saveKeyPair(KeyPair kp, String keyPairName){
+        //save keys to file
+        X509EncodedKeySpec encodedPublicKey = new X509EncodedKeySpec(kp.getPublic().getEncoded());
+        PKCS8EncodedKeySpec encodedPrivateKey = new PKCS8EncodedKeySpec(kp.getPrivate().getEncoded());
+        try {
+            //write public key
+            FileOutputStream fos = new FileOutputStream("Assignment2/" + keyPairName + "ClientPublicKey.key");
+            fos.write(encodedPublicKey.getEncoded());
+            fos.flush();
+            fos.close();
+
+            //write private key
+            fos = new FileOutputStream("Assignment2/" + keyPairName + "ClientPrivateKey.key");
+            fos.write(encodedPrivateKey.getEncoded());
+            fos.flush();
+            fos.close();
+        } catch (IOException e) {
+            System.out.println(e);
+        }
+    }
+
+    public static KeyPair loadKeyPair(String keyPairName) throws Exception{
+        //read public key
+        File filePublicKey = new File("Assignment2/" + keyPairName +  "ServerPublicKey.key");
+        FileInputStream fis = new FileInputStream("Assignment2/" + keyPairName +  "ServerPublicKey.key");
+        byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
+        fis.read(encodedPublicKey);
+        fis.close();
+
+        //read private key
+        File filePrivateKey = new File("Assignment2/" + keyPairName +  "ServerPrivateKey.key");
+        fis = new FileInputStream("Assignment2/" + keyPairName +  "ServerPrivateKey.key");
+        byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
+        fis.read(encodedPrivateKey);
+        fis.close();
+
+        //create public key
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(encodedPublicKey);
+        PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
+
+        //create private key
+        PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(encodedPrivateKey);
+        PrivateKey privateKey = keyFactory.generatePrivate(privateKeySpec);
+
+        return new KeyPair(publicKey, privateKey);
     }
 
     /**
@@ -61,25 +109,24 @@ public class EchoClient {
      */
     public String sendMessage(String msg) {
         try {
-            Scanner scan = new Scanner(System.in);
+            //generate two key-pairs
             KeyPair encryptDecryptKP = keyPairGeneration();
             KeyPair signatureKP = keyPairGeneration();
 
-            System.out.println("Enter EchoServer public key: ");
-            String echoServerPublicKey = scan.nextLine();
+            //save client keys to file
+            saveKeyPair(encryptDecryptKP, "EncryptDecrypt");
+            saveKeyPair(signatureKP, "Signature");
 
-            byte[] encodedServerPublicKey = Base64.getDecoder().decode(echoServerPublicKey);
-            KeyFactory kf = KeyFactory.getInstance("RSA");
-            PublicKey serverPublicKey = kf.generatePublic(new X509EncodedKeySpec(encodedServerPublicKey));
-
-            //  System.out.println(Base64.getEncoder().encodeToString(serverPublicKey.getEncoded()));
+            //load server keys from file
+            KeyPair serverEncryptDecryptKP = loadKeyPair("EncryptDecrypt");
+            KeyPair serverSignatureKP = loadKeyPair("Signature");
 
             System.out.println("Client sending cleartext " + msg);
             byte[] data = msg.getBytes("UTF-8");
 
             //encrypt message
             Cipher cipher = Cipher.getInstance(CIPHER);
-            cipher.init(Cipher.ENCRYPT_MODE, serverPublicKey);
+            cipher.init(Cipher.ENCRYPT_MODE, serverEncryptDecryptKP.getPublic());
             data = cipher.doFinal(data);
             System.out.println("Client sending ciphertext" + Util.bytesToHex(data));
 
@@ -102,6 +149,8 @@ public class EchoClient {
             int numBytes;
             String reply = null;
             while ((numBytes = in.read(decryptedData)) != -1) {
+                Scanner scan = new Scanner(System.in);
+                KeyFactory kf = KeyFactory.getInstance("RSA");
                 // decrypt data
                 System.arraycopy(decryptedData, 0, ciphertext, 0, 256);
                 System.arraycopy(decryptedData, 256, verifySignature, 0, 256);
