@@ -12,8 +12,9 @@ public class deleteKeyFiles {
         files.add("Assignment2/SignatureClientPublicKey.key");
         files.add("Assignment2/SignatureServerPrivateKey.key");
         files.add("Assignment2/SignatureServerPublicKey.key");
+        files.add("Assignment2/EncryptionMode.txt");
 
-        for(int i = 0; i<=7; i++){
+        for(int i = 0; i<=8; i++){
             File f = new File(files.get(i));
             f.delete();
         }
