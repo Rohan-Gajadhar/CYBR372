@@ -1,14 +1,12 @@
-import javax.crypto.BadPaddingException;
+package Part2;
+
 import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import java.net.*;
-import java.security.*;
 import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.security.*;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
 import java.util.Scanner;
 
@@ -70,12 +68,12 @@ public class EchoServer {
 
         try {
             //write public key to file
-            FileOutputStream fos = new FileOutputStream("Assignment2/" + keyPairName + "ServerPublicKey.key");
+            FileOutputStream fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ServerPublicKey.key");
             fos.write(encodedPublicKey.getEncoded());
             fos.close();
 
             //write private key to file
-            fos = new FileOutputStream("Assignment2/" + keyPairName + "ServerPrivateKey.key");
+            fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ServerPrivateKey.key");
             fos.write(encodedPrivateKey.getEncoded());
             fos.close();
 
@@ -94,15 +92,15 @@ public class EchoServer {
      */
     public static KeyPair loadKeyPair(String keyPairName) throws Exception{
         //read client public key from file
-        File filePublicKey = new File("Assignment2/" + keyPairName +  "ClientPublicKey.key");
-        FileInputStream fis = new FileInputStream("Assignment2/" + keyPairName +  "ClientPublicKey.key");
+        File filePublicKey = new File("Assignment2/Part1/" + keyPairName +  "ClientPublicKey.key");
+        FileInputStream fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ClientPublicKey.key");
         byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
         fis.read(encodedPublicKey);
         fis.close();
 
         //read private key
-        File filePrivateKey = new File("Assignment2/" + keyPairName +  "ClientPrivateKey.key");
-        fis = new FileInputStream("Assignment2/" + keyPairName +  "ClientPrivateKey.key");
+        File filePrivateKey = new File("Assignment2/Part1/" + keyPairName +  "ClientPrivateKey.key");
+        fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ClientPrivateKey.key");
         byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
         fis.read(encodedPrivateKey);
         fis.close();
@@ -179,11 +177,11 @@ public class EchoServer {
      *
      */
     public byte[] decrypt(byte[] message, PrivateKey privateKey) throws Exception {
-        System.out.println("\nServer returned ciphertext: " + Util.bytesToHex(message));
+        System.out.println("\nServer received ciphertext: " + Util.bytesToHex(message));
         Cipher cipher = Cipher.getInstance(CIPHER);
         cipher.init(Cipher.DECRYPT_MODE, privateKey);
         message = cipher.doFinal(message);
-        System.out.println("Server returned cleartext: " + new String(message, "UTF-8"));
+        System.out.println("Server received cleartext: " + new String(message, "UTF-8"));
         return message;
     }
 
@@ -202,9 +200,9 @@ public class EchoServer {
         sig.update(message);
         boolean verified = sig.verify(signature);
         if (verified) {
-            System.out.println("\nSignature was verified!");
+            System.out.println("\nSignature was verified!\n");
         } else {
-            System.out.println("\nSignature was unable to be verified.");
+            System.out.println("\nSignature was unable to be verified.\n");
         }
     }
 
@@ -236,12 +234,11 @@ public class EchoServer {
 
         while ((numBytes = in.read(receivingData)) != -1) {
             //read encryption mode
-            FileInputStream fis = new FileInputStream("Assignment2/" + "EncryptionMode.txt");
+            FileInputStream fis = new FileInputStream("Assignment2/Part1/" + "EncryptionMode.txt");
             byte[] encryptionModeByte = new byte[1];
             fis.read(encryptionModeByte);
             fis.close();
             int encryptionMode = encryptionModeByte[0];
-            System.out.println("ENCRYPTION MODE: " + encryptionMode);
 
             //load client keys from file
             KeyPair clientEncryptDecryptKP = loadKeyPair("EncryptDecrypt");

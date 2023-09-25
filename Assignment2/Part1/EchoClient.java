@@ -1,3 +1,5 @@
+package Part1;
+
 import java.io.*;
 import java.net.*;
 import java.security.*;
@@ -84,12 +86,12 @@ public class EchoClient {
 
         try {
             //write public key
-            FileOutputStream fos = new FileOutputStream("Assignment2/" + keyPairName + "ClientPublicKey.key");
+            FileOutputStream fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ClientPublicKey.key");
             fos.write(encodedPublicKey.getEncoded());
             fos.close();
 
             //write private key
-            fos = new FileOutputStream("Assignment2/" + keyPairName + "ClientPrivateKey.key");
+            fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ClientPrivateKey.key");
             fos.write(encodedPrivateKey.getEncoded());
             fos.close();
         } catch (IOException e) {
@@ -107,15 +109,15 @@ public class EchoClient {
      */
     public static KeyPair loadKeyPair(String keyPairName) throws Exception{
         //read public key
-        File filePublicKey = new File("Assignment2/" + keyPairName +  "ServerPublicKey.key");
-        FileInputStream fis = new FileInputStream("Assignment2/" + keyPairName +  "ServerPublicKey.key");
+        File filePublicKey = new File("Assignment2/Part1/" + keyPairName +  "ServerPublicKey.key");
+        FileInputStream fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ServerPublicKey.key");
         byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
         fis.read(encodedPublicKey);
         fis.close();
 
         //read private key
-        File filePrivateKey = new File("Assignment2/" + keyPairName +  "ServerPrivateKey.key");
-        fis = new FileInputStream("Assignment2/" + keyPairName +  "ServerPrivateKey.key");
+        File filePrivateKey = new File("Assignment2/Part1/" + keyPairName +  "ServerPrivateKey.key");
+        fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ServerPrivateKey.key");
         byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
         fis.read(encodedPrivateKey);
         fis.close();
@@ -237,9 +239,9 @@ public class EchoClient {
 
         boolean verified = sig.verify(signature);
         if (verified) {
-            System.out.println("\nSignature was verified!");
+            System.out.println("\nSignature was verified!\n");
         } else {
-            System.out.println("\nSignature was unable to be verified.");
+            System.out.println("\nSignature was unable to be verified.\n");
         }
     }
 
@@ -248,7 +250,7 @@ public class EchoClient {
         Scanner scan = new Scanner(System.in);
         System.out.println("Enter 1 to encrypt-then-sign OR 2 to sign-and-encrypt");
         encryptionMode = scan.nextInt();
-        FileOutputStream fos = new FileOutputStream("Assignment2/" + "EncryptionMode.txt");
+        FileOutputStream fos = new FileOutputStream("Assignment2/Part1/" + "EncryptionMode.txt");
         fos.write(encryptionMode);
         fos.close();
     }
@@ -262,7 +264,6 @@ public class EchoClient {
     public String sendMessage(String msg) throws Exception {
         String reply = null;
 
-        System.out.println("ENCRYPTION MODE: " + encryptionMode);
         //encrypt-then-sign
         if (encryptionMode == 1) {
             System.out.println("Client sending cleartext: " + msg);
