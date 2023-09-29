@@ -5,10 +5,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.*;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
-import java.util.Base64;
-import java.util.Scanner;
+import java.security.cert.X509Certificate;
 
 public class EchoServer {
 
@@ -18,107 +15,28 @@ public class EchoServer {
     private DataInputStream in;
     private static final String CIPHER = "RSA/ECB/PKCS1Padding";
     private static final String SIGNATURE_ALGORITHM = "SHA512withRSA";
-    KeyPair encryptDecryptKP = null;
-    KeyPair signatureKP = null;
+
+    static KeyPair clientKeyPair = null;
+    static KeyPair serverKeyPair = null;
+
     int encryptionMode = -1;
 
 
-    /**
-     * Generates a key pair using a public and private key
-     * Prints public key as-is to console and in base64 (human-readable format of modulus and exponent)
-     *
-     * @param keyPairName identifies what the key-pair is used for (encrypt/decrypt, or signature)
-     * @return key pair
-     *
-     */
-    public static KeyPair keyPairGeneration(String keyPairName) throws NoSuchAlgorithmException{
-        //user enters desired key length
-        Scanner scan = new Scanner(System.in);
-        System.out.println("Enter a key length (eg: 1024, 2048, 4096)");
-        int keyLength = scan.nextInt();
+    public KeyPair getKeyPairFromKeyStore(String alias) throws Exception{
+        InputStream ins = new FileInputStream("Assignment2/Part2/cybr372.jks");
+        KeyStore keyStore = KeyStore.getInstance("JKS");
+        keyStore.load(ins, "badpassword".toCharArray());   //Keystore password
 
-        //generate key pair
-        final KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
-        keyGen.initialize(keyLength);
-        KeyPair key = keyGen.generateKeyPair();
+        KeyStore.PasswordProtection keyPassword =       //Key password
+                new KeyStore.PasswordProtection("badpassword".toCharArray());
+        KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(alias, keyPassword);
 
         //get public and private keys
-        final PublicKey publicKey = key.getPublic();
-        final PrivateKey privateKey = key.getPrivate();
-
-        //print public key
-        System.out.println("\n" + keyPairName + " Public Key:\n" + publicKey + "\n");
-        System.out.println(keyPairName + " Public Key:\n" + Base64.getEncoder().encodeToString(publicKey.getEncoded()) + "\n");
-
-        return key;
-    }
-
-    /**
-     * Saves the generated key-pair to a file (.key) in the same directory as the program
-     * Encodes the public and private keys, so they are not in plaintext format
-     *
-     * @param kp key-pair to be saved
-     * @param keyPairName identifies which key-pair is being saved (encrypt/decrypt, or signature)
-     *
-     */
-    public static void saveKeyPair(KeyPair kp, String keyPairName){
-        //encode public and private keys
-        X509EncodedKeySpec encodedPublicKey = new X509EncodedKeySpec(kp.getPublic().getEncoded());
-        PKCS8EncodedKeySpec encodedPrivateKey = new PKCS8EncodedKeySpec(kp.getPrivate().getEncoded());
-
-        try {
-            //write public key to file
-            FileOutputStream fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ServerPublicKey.key");
-            fos.write(encodedPublicKey.getEncoded());
-            fos.close();
-
-            //write private key to file
-            fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ServerPrivateKey.key");
-            fos.write(encodedPrivateKey.getEncoded());
-            fos.close();
-
-        } catch (IOException e) {
-            System.out.println(e);
-        }
-    }
-
-    /**
-     * Loads the client key-pair from a file (.key) in the same directory as the program
-     * Reconstructs public and private keys from encoded keys
-     *
-     * @param keyPairName identifies which key-pair is being loaded (encrypt/decrypt, or signature)
-     * @return key-pair, containing reconstructed public and private keys
-     *
-     */
-    public static KeyPair loadKeyPair(String keyPairName) throws Exception{
-        //read client public key from file
-        File filePublicKey = new File("Assignment2/Part1/" + keyPairName +  "ClientPublicKey.key");
-        FileInputStream fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ClientPublicKey.key");
-        byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
-        fis.read(encodedPublicKey);
-        fis.close();
-
-        //read private key
-        File filePrivateKey = new File("Assignment2/Part1/" + keyPairName +  "ClientPrivateKey.key");
-        fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ClientPrivateKey.key");
-        byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
-        fis.read(encodedPrivateKey);
-        fis.close();
-
-        //create public key spec from file
-        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-        X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(encodedPublicKey);
-        PublicKey publicKey = keyFactory.generatePublic(publicKeySpec);
-
-        //create private key spec from file
-        PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(encodedPrivateKey);
-        PrivateKey privateKey = keyFactory.generatePrivate(privateKeySpec);
+        X509Certificate cert = (X509Certificate) keyStore.getCertificate(alias);
+        PublicKey publicKey = cert.getPublicKey();
+        PrivateKey privateKey = privateKeyEntry.getPrivateKey();
 
         return new KeyPair(publicKey, privateKey);
-    }
-
-    public void keyInstantiation() throws Exception {
-
     }
 
     /**
@@ -213,13 +131,9 @@ public class EchoServer {
      * @param port the port number of the server
      */
     public void start(int port) throws Exception{
-        //generate two key-pairs
-        encryptDecryptKP = keyPairGeneration("Client Encrypt/Decrypt");
-        signatureKP = keyPairGeneration("Client Signature");
-
-        //save client keys to file
-        saveKeyPair(encryptDecryptKP, "EncryptDecrypt");
-        saveKeyPair(signatureKP, "Signature");
+        //get the key pairs from the keystore
+        clientKeyPair = getKeyPairFromKeyStore("client");
+        serverKeyPair = getKeyPairFromKeyStore("server");
 
         serverSocket = new ServerSocket(port);
         clientSocket = serverSocket.accept();
@@ -234,15 +148,11 @@ public class EchoServer {
 
         while ((numBytes = in.read(receivingData)) != -1) {
             //read encryption mode
-            FileInputStream fis = new FileInputStream("Assignment2/Part1/" + "EncryptionMode.txt");
+            FileInputStream fis = new FileInputStream("Assignment2/Part2/" + "EncryptionMode.txt");
             byte[] encryptionModeByte = new byte[1];
             fis.read(encryptionModeByte);
             fis.close();
             int encryptionMode = encryptionModeByte[0];
-
-            //load client keys from file
-            KeyPair clientEncryptDecryptKP = loadKeyPair("EncryptDecrypt");
-            KeyPair clientSignatureKP = loadKeyPair("Signature");
 
             //seperate data and signature
             System.arraycopy(receivingData, 0, message, 0, 256); //copy encrypted data into message[]
@@ -250,12 +160,12 @@ public class EchoServer {
 
             if (encryptionMode == 1) {
                 //decrypt
-                byte[] sendingData = decrypt(message, encryptDecryptKP.getPrivate()); //decrypt
-                verifySignature(message, clientSignature, clientSignatureKP.getPublic()); //verify signature
+                byte[] sendingData = decrypt(message, serverKeyPair.getPrivate()); //decrypt
+                verifySignature(message, clientSignature, clientKeyPair.getPublic()); //verify signature
 
                 //encrypt
-                sendingData = encryption(sendingData, clientEncryptDecryptKP.getPublic()); //encrypt
-                byte[] serverSignature = sign(sendingData, signatureKP.getPrivate()); //sign
+                sendingData = encryption(sendingData, clientKeyPair.getPublic()); //encrypt
+                byte[] serverSignature = sign(sendingData, (PrivateKey) serverKeyPair.getPrivate()); //sign
                 sendingData = concatenateDataAndSignature(sendingData, serverSignature); //concatenate data and signature into one array
 
                 //send data
@@ -264,12 +174,12 @@ public class EchoServer {
             }
             else if (encryptionMode == 2) {
                 //decrypt
-                byte[] sendingData = decrypt(message, encryptDecryptKP.getPrivate()); //decrypt
-                verifySignature(sendingData, clientSignature, clientSignatureKP.getPublic()); //verify signature
+                byte[] sendingData = decrypt(message, (PrivateKey) serverKeyPair.getPrivate()); //decrypt
+                verifySignature(sendingData, clientSignature, clientKeyPair.getPublic()); //verify signature
 
                 //encrypt
-                byte[] serverSignature = sign(sendingData, signatureKP.getPrivate()); //sign
-                sendingData = encryption(sendingData, clientEncryptDecryptKP.getPublic()); //encrypt
+                byte[] serverSignature = sign(sendingData, (PrivateKey) serverKeyPair.getPrivate()); //sign
+                sendingData = encryption(sendingData, clientKeyPair.getPublic()); //encrypt
                 sendingData = concatenateDataAndSignature(sendingData, serverSignature); //concatenate data and signature into one array
 
                 //send data
