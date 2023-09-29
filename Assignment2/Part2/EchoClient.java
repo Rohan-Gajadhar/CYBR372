@@ -37,13 +37,21 @@ public class EchoClient {
         }
     }
 
-    public KeyPair getKeyPairFromKeyStore(String alias) throws Exception{
+    /**
+     * Gets the key pair from the key store
+     *
+     * @param alias the alias of the key pair
+     * @param keyStorePassword the password of the key store
+     * @return key pair
+     *
+     */
+    public KeyPair getKeyPairFromKeyStore(String alias, String keyStorePassword) throws Exception{
         InputStream ins = new FileInputStream("Assignment2/Part2/cybr372.jks");
         KeyStore keyStore = KeyStore.getInstance("JKS");
-        keyStore.load(ins, "badpassword".toCharArray());   //Keystore password
+        keyStore.load(ins, keyStorePassword.toCharArray());   //Keystore password
 
         KeyStore.PasswordProtection keyPassword =       //Key password
-                new KeyStore.PasswordProtection("badpassword".toCharArray());
+                new KeyStore.PasswordProtection(keyStorePassword.toCharArray());
         KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(alias, keyPassword);
 
         //get public and private keys
@@ -145,6 +153,11 @@ public class EchoClient {
         }
     }
 
+    /**
+     * User selects whether to encrypt-then-sign or sign-and-encrypt
+     * Writes output to .txt file for server to read
+     *
+     */
     public void setEncryptionMode() throws Exception {
         //user selects whether to encrypt-then-sign or sign-and-encrypt
         Scanner scan = new Scanner(System.in);
@@ -153,7 +166,22 @@ public class EchoClient {
         FileOutputStream fos = new FileOutputStream("Assignment2/Part2/" + "EncryptionMode.txt");
         fos.write(encryptionMode);
         fos.close();
-        scan.close();
+    }
+
+    /**
+     * User enters keystore password
+     * Gets the key pairs from the key store
+     *
+     */
+    public void getKeyPairs() throws Exception {
+        //user enters keystore password
+        Scanner scan = new Scanner(System.in);
+        System.out.println("Enter keystore password: ");
+        String keyStorePassword = scan.next();
+
+        //get the key pairs from key store
+        clientKeyPair = getKeyPairFromKeyStore("client", keyStorePassword);
+        serverKeyPair = getKeyPairFromKeyStore("server", keyStorePassword);
     }
 
 
@@ -196,8 +224,7 @@ public class EchoClient {
             }
         }
 
-        //sign-and-encrypt
-        //encrypt message, sign the message
+        //encrypt-and-sign
         else if (encryptionMode == 2) {
             System.out.println("Client sending cleartext: " + msg);
             byte[] plaintext = msg.getBytes("UTF-8");
@@ -243,15 +270,11 @@ public class EchoClient {
         }
     }
 
-
-
     public static void main(String[] args) throws Exception {
         EchoClient client = new EchoClient();
         client.startConnection("127.0.0.1", 4444);
         client.setEncryptionMode();
-        //get the key pairs from key store
-        clientKeyPair = client.getKeyPairFromKeyStore("client");
-        serverKeyPair = client.getKeyPairFromKeyStore("server");
+        client.getKeyPairs();
         client.sendMessage("12345678");
         client.sendMessage("ABCDEFGH");
         client.sendMessage("87654321");

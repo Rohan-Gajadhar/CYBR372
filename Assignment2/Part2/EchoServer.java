@@ -6,6 +6,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.*;
 import java.security.cert.X509Certificate;
+import java.util.Scanner;
 
 public class EchoServer {
 
@@ -22,13 +23,21 @@ public class EchoServer {
     int encryptionMode = -1;
 
 
-    public KeyPair getKeyPairFromKeyStore(String alias) throws Exception{
+    /**
+     * Gets the key pair from the key store
+     *
+     * @param alias the alias of the key pair
+     * @param keyStorePassword the password of the key store
+     * @return key pair
+     *
+     */
+    public KeyPair getKeyPairFromKeyStore(String alias, String keyStorePassword) throws Exception{
         InputStream ins = new FileInputStream("Assignment2/Part2/cybr372.jks");
         KeyStore keyStore = KeyStore.getInstance("JKS");
-        keyStore.load(ins, "badpassword".toCharArray());   //Keystore password
+        keyStore.load(ins, keyStorePassword.toCharArray());   //Keystore password
 
         KeyStore.PasswordProtection keyPassword =       //Key password
-                new KeyStore.PasswordProtection("badpassword".toCharArray());
+                new KeyStore.PasswordProtection(keyStorePassword.toCharArray());
         KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(alias, keyPassword);
 
         //get public and private keys
@@ -125,15 +134,29 @@ public class EchoServer {
     }
 
     /**
+     * User enters keystore password
+     * Gets the key pairs from the key store
+     *
+     */
+    public void getKeyPairs() throws Exception {
+        //user enters keystore password
+        Scanner scan = new Scanner(System.in);
+        System.out.println("Enter keystore password: ");
+        String keyStorePassword = scan.next();
+
+        //get the key pairs from key store
+        clientKeyPair = getKeyPairFromKeyStore("client", keyStorePassword);
+        serverKeyPair = getKeyPairFromKeyStore("server", keyStorePassword);
+    }
+
+    /**
      * Create the server socket and wait for a connection.
      * Keep receiving messages until the input stream is closed by the client.
      *
      * @param port the port number of the server
      */
     public void start(int port) throws Exception{
-        //get the key pairs from the keystore
-        clientKeyPair = getKeyPairFromKeyStore("client");
-        serverKeyPair = getKeyPairFromKeyStore("server");
+        getKeyPairs();
 
         serverSocket = new ServerSocket(port);
         clientSocket = serverSocket.accept();
@@ -147,7 +170,7 @@ public class EchoServer {
         int numBytes;
 
         while ((numBytes = in.read(receivingData)) != -1) {
-            //read encryption mode
+            //read encryption mode from EncryptionMode.txt to determine how to decrypt and encrypt
             FileInputStream fis = new FileInputStream("Assignment2/Part2/" + "EncryptionMode.txt");
             byte[] encryptionModeByte = new byte[1];
             fis.read(encryptionModeByte);
@@ -207,14 +230,9 @@ public class EchoServer {
 
     }
 
-
-
     public static void main(String[] args) throws Exception{
         EchoServer server = new EchoServer();
         server.start(4444);
     }
 
 }
-
-
-
