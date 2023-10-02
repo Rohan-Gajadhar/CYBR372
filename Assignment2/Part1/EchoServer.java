@@ -32,7 +32,6 @@ public class EchoServer {
      *
      */
     public static KeyPair keyPairGeneration(String keyPairName) throws NoSuchAlgorithmException{
-
         //generate key pair
         final KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
         keyGen.initialize(keyLength);
@@ -64,12 +63,12 @@ public class EchoServer {
 
         try {
             //write public key to file
-            FileOutputStream fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ServerPublicKey.key");
+            FileOutputStream fos = new FileOutputStream("Part1/" + keyPairName + "ServerPublicKey.key");
             fos.write(encodedPublicKey.getEncoded());
             fos.close();
 
             //write private key to file
-            fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ServerPrivateKey.key");
+            fos = new FileOutputStream("Part1/" + keyPairName + "ServerPrivateKey.key");
             fos.write(encodedPrivateKey.getEncoded());
             fos.close();
 
@@ -88,15 +87,15 @@ public class EchoServer {
      */
     public static KeyPair loadKeyPair(String keyPairName) throws Exception{
         //read client public key from file
-        File filePublicKey = new File("Assignment2/Part1/" + keyPairName +  "ClientPublicKey.key");
-        FileInputStream fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ClientPublicKey.key");
+        File filePublicKey = new File("Part1/" + keyPairName +  "ClientPublicKey.key");
+        FileInputStream fis = new FileInputStream("Part1/" + keyPairName +  "ClientPublicKey.key");
         byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
         fis.read(encodedPublicKey);
         fis.close();
 
         //read private key
-        File filePrivateKey = new File("Assignment2/Part1/" + keyPairName +  "ClientPrivateKey.key");
-        fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ClientPrivateKey.key");
+        File filePrivateKey = new File("Part1/" + keyPairName +  "ClientPrivateKey.key");
+        fis = new FileInputStream("Part1/" + keyPairName +  "ClientPrivateKey.key");
         byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
         fis.read(encodedPrivateKey);
         fis.close();
@@ -222,15 +221,18 @@ public class EchoServer {
         out = new DataOutputStream(clientSocket.getOutputStream());
         in = new DataInputStream(clientSocket.getInputStream());
 
+        //instatiates byte arrays to correct length depending on key length
+        int messageLength = keyLength/8;
+        int signatureLength = keyLength/8;
+        byte[] receivingData = new byte[messageLength + signatureLength];
+        byte[] message = new byte[messageLength];
+        byte[] clientSignature = new byte[signatureLength];
 
-        byte[] receivingData = new byte[512];
-        byte[] message = new byte[256];
-        byte[] clientSignature = new byte[256];
         int numBytes;
 
         while ((numBytes = in.read(receivingData)) != -1) {
             //read encryption mode
-            FileInputStream fis = new FileInputStream("Assignment2/Part1/" + "EncryptionMode.txt");
+            FileInputStream fis = new FileInputStream("Part1/" + "EncryptionMode.txt");
             byte[] encryptionModeByte = new byte[1];
             fis.read(encryptionModeByte);
             fis.close();
@@ -241,8 +243,8 @@ public class EchoServer {
             KeyPair clientSignatureKP = loadKeyPair("Signature");
 
             //seperate data and signature
-            System.arraycopy(receivingData, 0, message, 0, 256); //copy encrypted data into message[]
-            System.arraycopy(receivingData, 256, clientSignature, 0, 256); //copy signature into clientSignature[]
+            System.arraycopy(receivingData, 0, message, 0, messageLength); //copy encrypted data into message[]
+            System.arraycopy(receivingData, messageLength, clientSignature, 0, signatureLength); //copy signature into clientSignature[]
 
             if (encryptionMode == 1) {
                 //decrypt
@@ -296,10 +298,17 @@ public class EchoServer {
 
 
     public static void main(String[] args) throws Exception{
-        EchoServer server = new EchoServer();
-        server.start(4444);
-        if(args.length > 0){keyLength = Integer.parseInt(args[0]);}
-        else{System.out.println("Please enter a key length (eg: 1024, 2048, 4096)");}
+        try{
+            if(args.length > 0){
+                keyLength = Integer.parseInt(args[0]);
+            } else {
+                keyLength = 2048;
+            }
+            EchoServer server = new EchoServer();
+            server.start(4444);
+        } catch (Exception e){
+            System.out.println(e.getMessage());
+        }
     }
 
 }

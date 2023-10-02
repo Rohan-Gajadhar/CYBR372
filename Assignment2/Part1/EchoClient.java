@@ -24,6 +24,7 @@ public class EchoClient {
     KeyPair serverSignatureKP = null;
 
     private static int encryptionMode = -1;
+    static int keyLength = -1;
 
     /**
      * Setup the two way streams.
@@ -51,11 +52,6 @@ public class EchoClient {
      *
      */
     public static KeyPair keyPairGeneration(String keyPairName) throws NoSuchAlgorithmException{
-        //user enters desired key length
-        Scanner scan = new Scanner(System.in);
-        System.out.println("Enter a key length (eg: 1024, 2048, 4096)");
-        int keyLength = scan.nextInt();
-
         //generate key pair
         final KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
         keyGen.initialize(keyLength);
@@ -86,12 +82,12 @@ public class EchoClient {
 
         try {
             //write public key
-            FileOutputStream fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ClientPublicKey.key");
+            FileOutputStream fos = new FileOutputStream("Part1/" + keyPairName + "ClientPublicKey.key");
             fos.write(encodedPublicKey.getEncoded());
             fos.close();
 
             //write private key
-            fos = new FileOutputStream("Assignment2/Part1/" + keyPairName + "ClientPrivateKey.key");
+            fos = new FileOutputStream("Part1/" + keyPairName + "ClientPrivateKey.key");
             fos.write(encodedPrivateKey.getEncoded());
             fos.close();
         } catch (IOException e) {
@@ -109,15 +105,15 @@ public class EchoClient {
      */
     public static KeyPair loadKeyPair(String keyPairName) throws Exception{
         //read public key
-        File filePublicKey = new File("Assignment2/Part1/" + keyPairName +  "ServerPublicKey.key");
-        FileInputStream fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ServerPublicKey.key");
+        File filePublicKey = new File("Part1/" + keyPairName +  "ServerPublicKey.key");
+        FileInputStream fis = new FileInputStream("Part1/" + keyPairName +  "ServerPublicKey.key");
         byte[] encodedPublicKey = new byte[(int) filePublicKey.length()];
         fis.read(encodedPublicKey);
         fis.close();
 
         //read private key
-        File filePrivateKey = new File("Assignment2/Part1/" + keyPairName +  "ServerPrivateKey.key");
-        fis = new FileInputStream("Assignment2/Part1/" + keyPairName +  "ServerPrivateKey.key");
+        File filePrivateKey = new File("Part1/" + keyPairName +  "ServerPrivateKey.key");
+        fis = new FileInputStream("Part1/" + keyPairName +  "ServerPrivateKey.key");
         byte[] encodedPrivateKey = new byte[(int) filePrivateKey.length()];
         fis.read(encodedPrivateKey);
         fis.close();
@@ -246,11 +242,7 @@ public class EchoClient {
     }
 
     public void setEncryptionMode() throws Exception {
-        //user selects whether to encrypt-then-sign or sign-and-encrypt
-        Scanner scan = new Scanner(System.in);
-        System.out.println("Enter 1 to encrypt-then-sign OR 2 to sign-and-encrypt");
-        encryptionMode = scan.nextInt();
-        FileOutputStream fos = new FileOutputStream("Assignment2/Part1/" + "EncryptionMode.txt");
+        FileOutputStream fos = new FileOutputStream("Part1/" + "EncryptionMode.txt");
         fos.write(encryptionMode);
         fos.close();
     }
@@ -277,17 +269,22 @@ public class EchoClient {
             out.write(sendingData);
             out.flush();
 
-            // decryption
-            byte[] receivingData = new byte[512];
-            byte[] message = new byte[256];
-            byte[] serverSignature = new byte[256];
-            byte[] decrypted = new byte[256];
+            //decryption
+            //instatiates byte arrays to correct length depending on key length
+            int messageLength = keyLength/8;
+            int signatureLength = keyLength/8;
+            int decryptedLength = keyLength/8;
+            byte[] receivingData = new byte[messageLength + signatureLength];
+            byte[] message = new byte[messageLength];
+            byte[] serverSignature = new byte[signatureLength];
+            byte[] decrypted = new byte[decryptedLength];
+
             int numBytes;
 
             while ((numBytes = in.read(receivingData)) != -1) {
                 //seperate data and signature
-                System.arraycopy(receivingData, 0, message, 0, 256); //copy encrypted data into message[]
-                System.arraycopy(receivingData, 256, serverSignature, 0, 256); //copy signature into serverSignature[]
+                System.arraycopy(receivingData, 0, message, 0, messageLength); //copy encrypted data into message[]
+                System.arraycopy(receivingData, messageLength, serverSignature, 0, signatureLength); //copy signature into serverSignature[]
                 decrypted = decrypt(message, encryptDecryptKP.getPrivate()); //decrypt
                 reply = new String(decrypted, "UTF-8");
                 verifySignature(message, serverSignature, serverSignatureKP.getPublic()); //verify signature
@@ -306,17 +303,22 @@ public class EchoClient {
             out.write(sendingData);
             out.flush();
 
-            // decryption
-            byte[] receivingData = new byte[512];
-            byte[] message = new byte[256];
-            byte[] serverSignature = new byte[256];
-            byte[] decrypted = new byte[256];
+            //decryption
+            //instatiates byte arrays to correct length depending on key length
+            int messageLength = keyLength/8;
+            int signatureLength = keyLength/8;
+            int decryptedLength = keyLength/8;
+            byte[] receivingData = new byte[messageLength + signatureLength];
+            byte[] message = new byte[messageLength];
+            byte[] serverSignature = new byte[signatureLength];
+            byte[] decrypted = new byte[decryptedLength];
+
             int numBytes;
 
             while ((numBytes = in.read(receivingData)) != -1) {
                 //seperate data and signature
-                System.arraycopy(receivingData, 0, message, 0, 256); //copy encrypted data into message[]
-                System.arraycopy(receivingData, 256, serverSignature, 0, 256); //copy signature into serverSignature[]
+                System.arraycopy(receivingData, 0, message, 0, messageLength); //copy encrypted data into message[]
+                System.arraycopy(receivingData, messageLength, serverSignature, 0, signatureLength); //copy signature into serverSignature[]
                 decrypted = decrypt(message, encryptDecryptKP.getPrivate()); //decrypt
                 reply = new String(decrypted, "UTF-8");
                 verifySignature(decrypted, serverSignature, serverSignatureKP.getPublic()); //verify signature
@@ -345,14 +347,22 @@ public class EchoClient {
 
 
     public static void main(String[] args) throws Exception {
-        EchoClient client = new EchoClient();
-        client.startConnection("127.0.0.1", 4444);
-        client.keyInstantiation();
-        client.setEncryptionMode();
-        client.sendMessage("12345678");
-        client.sendMessage("ABCDEFGH");
-        client.sendMessage("87654321");
-        client.sendMessage("HGFEDCBA");
-        client.stopConnection();
+        try{
+            if(args.length > 0){
+                keyLength = Integer.parseInt(args[0]);
+                encryptionMode = Integer.parseInt(args[1]);
+            }
+            EchoClient client = new EchoClient();
+            client.startConnection("127.0.0.1", 4444);
+            client.keyInstantiation();
+            client.setEncryptionMode();
+            client.sendMessage("12345678");
+            client.sendMessage("ABCDEFGH");
+            client.sendMessage("87654321");
+            client.sendMessage("HGFEDCBA");
+            client.stopConnection();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
 }
