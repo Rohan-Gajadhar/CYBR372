@@ -20,6 +20,7 @@ public class EchoServer {
     KeyPair encryptDecryptKP = null;
     KeyPair signatureKP = null;
     int encryptionMode = -1;
+    static int keyLength = -1;
 
 
     /**
@@ -31,10 +32,6 @@ public class EchoServer {
      *
      */
     public static KeyPair keyPairGeneration(String keyPairName) throws NoSuchAlgorithmException{
-        //user enters desired key length
-        Scanner scan = new Scanner(System.in);
-        System.out.println("Enter a key length (eg: 1024, 2048, 4096)");
-        int keyLength = scan.nextInt();
 
         //generate key pair
         final KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
@@ -301,6 +298,8 @@ public class EchoServer {
     public static void main(String[] args) throws Exception{
         EchoServer server = new EchoServer();
         server.start(4444);
+        if(args.length > 0){keyLength = Integer.parseInt(args[0]);}
+        else{System.out.println("Please enter a key length (eg: 1024, 2048, 4096)");}
     }
 
 }
