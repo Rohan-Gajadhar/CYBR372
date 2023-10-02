@@ -15,10 +15,13 @@ public class EchoClient {
     private static final String CIPHER = "RSA/ECB/PKCS1Padding";
     private static final String SIGNATURE_ALGORITHM = "SHA512withRSA";
 
-    static KeyPair clientKeyPair = null;
-    static KeyPair serverKeyPair = null;
+    static KeyPair clientCipherKeyPair = null;
+    static KeyPair clientSignatureKeyPair = null;
+    static KeyPair serverCipherKeyPair = null;
+    static KeyPair serverSignatureKeyPair = null;
 
     private static int encryptionMode = -1;
+    private static String keyStorePassword = null;
 
     /**
      * Setup the two way streams.
@@ -46,7 +49,7 @@ public class EchoClient {
      *
      */
     public KeyPair getKeyPairFromKeyStore(String alias, String keyStorePassword) throws Exception{
-        InputStream ins = new FileInputStream("Assignment2/Part2/cybr372.jks");
+        InputStream ins = new FileInputStream("Part2/cybr372.jks");
         KeyStore keyStore = KeyStore.getInstance("JKS");
         keyStore.load(ins, keyStorePassword.toCharArray());   //Keystore password
 
@@ -159,11 +162,7 @@ public class EchoClient {
      *
      */
     public void setEncryptionMode() throws Exception {
-        //user selects whether to encrypt-then-sign or sign-and-encrypt
-        Scanner scan = new Scanner(System.in);
-        System.out.println("Enter 1 to encrypt-then-sign OR 2 to sign-and-encrypt");
-        encryptionMode = scan.nextInt();
-        FileOutputStream fos = new FileOutputStream("Assignment2/Part2/" + "EncryptionMode.txt");
+        FileOutputStream fos = new FileOutputStream("Part2/" + "EncryptionMode.txt");
         fos.write(encryptionMode);
         fos.close();
     }
@@ -174,14 +173,11 @@ public class EchoClient {
      *
      */
     public void getKeyPairs() throws Exception {
-        //user enters keystore password
-        Scanner scan = new Scanner(System.in);
-        System.out.println("Enter keystore password: ");
-        String keyStorePassword = scan.next();
-
         //get the key pairs from key store
-        clientKeyPair = getKeyPairFromKeyStore("client", keyStorePassword);
-        serverKeyPair = getKeyPairFromKeyStore("server", keyStorePassword);
+        clientCipherKeyPair = getKeyPairFromKeyStore("ClientCipher", keyStorePassword);
+        clientSignatureKeyPair = getKeyPairFromKeyStore("ClientSignature", keyStorePassword);
+        serverCipherKeyPair = getKeyPairFromKeyStore("ServerCipher", keyStorePassword);
+        serverSignatureKeyPair = getKeyPairFromKeyStore("ServerSignature", keyStorePassword);
     }
 
 
@@ -198,8 +194,8 @@ public class EchoClient {
             System.out.println("Client sending cleartext: " + msg);
 
             byte[] sendingData = msg.getBytes("UTF-8"); //convert message to byte array
-            sendingData = encryption(sendingData, serverKeyPair.getPublic()); //encrypt
-            byte[] clientSignature = sign(sendingData, clientKeyPair.getPrivate()); //sign
+            sendingData = encryption(sendingData, serverCipherKeyPair.getPublic()); //encrypt
+            byte[] clientSignature = sign(sendingData, clientSignatureKeyPair.getPrivate()); //sign
             sendingData = concatenateDataAndSignature(sendingData, clientSignature); //concatenate data and signature into one array
 
             //send data
@@ -217,9 +213,9 @@ public class EchoClient {
                 //seperate data and signature
                 System.arraycopy(receivingData, 0, message, 0, 256); //copy encrypted data into message[]
                 System.arraycopy(receivingData, 256, serverSignature, 0, 256); //copy signature into serverSignature[]
-                decrypted = decrypt(message, clientKeyPair.getPrivate()); //decrypt
+                decrypted = decrypt(message, clientCipherKeyPair.getPrivate()); //decrypt
                 reply = new String(decrypted, "UTF-8");
-                verifySignature(message, serverSignature, serverKeyPair.getPublic()); //verify signature
+                verifySignature(message, serverSignature, serverSignatureKeyPair.getPublic()); //verify signature
                 break;
             }
         }
@@ -228,8 +224,8 @@ public class EchoClient {
         else if (encryptionMode == 2) {
             System.out.println("Client sending cleartext: " + msg);
             byte[] plaintext = msg.getBytes("UTF-8");
-            byte[] clientSignature = sign(plaintext, clientKeyPair.getPrivate()); //sign
-            byte[] sendingData = encryption(plaintext, serverKeyPair.getPublic());
+            byte[] clientSignature = sign(plaintext, clientSignatureKeyPair.getPrivate()); //sign
+            byte[] sendingData = encryption(plaintext, serverCipherKeyPair.getPublic());
             sendingData = concatenateDataAndSignature(sendingData, clientSignature);
             out.write(sendingData);
             out.flush();
@@ -245,9 +241,9 @@ public class EchoClient {
                 //seperate data and signature
                 System.arraycopy(receivingData, 0, message, 0, 256); //copy encrypted data into message[]
                 System.arraycopy(receivingData, 256, serverSignature, 0, 256); //copy signature into serverSignature[]
-                decrypted = decrypt(message, clientKeyPair.getPrivate()); //decrypt
+                decrypted = decrypt(message, clientCipherKeyPair.getPrivate()); //decrypt
                 reply = new String(decrypted, "UTF-8");
-                verifySignature(decrypted, serverSignature, serverKeyPair.getPublic()); //verify signature
+                verifySignature(decrypted, serverSignature, serverSignatureKeyPair.getPublic()); //verify signature
                 break;
             }
         } else {
@@ -271,14 +267,22 @@ public class EchoClient {
     }
 
     public static void main(String[] args) throws Exception {
-        EchoClient client = new EchoClient();
-        client.startConnection("127.0.0.1", 4444);
-        client.setEncryptionMode();
-        client.getKeyPairs();
-        client.sendMessage("12345678");
-        client.sendMessage("ABCDEFGH");
-        client.sendMessage("87654321");
-        client.sendMessage("HGFEDCBA");
-        client.stopConnection();
+        try {
+            if (args.length > 0) {
+                encryptionMode = Integer.parseInt(args[0]);
+                keyStorePassword = args[1];
+            }
+            EchoClient client = new EchoClient();
+            client.startConnection("127.0.0.1", 4444);
+            client.setEncryptionMode();
+            client.getKeyPairs();
+            client.sendMessage("12345678");
+            client.sendMessage("ABCDEFGH");
+            client.sendMessage("87654321");
+            client.sendMessage("HGFEDCBA");
+            client.stopConnection();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
 }

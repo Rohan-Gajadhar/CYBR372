@@ -17,10 +17,14 @@ public class EchoServer {
     private static final String CIPHER = "RSA/ECB/PKCS1Padding";
     private static final String SIGNATURE_ALGORITHM = "SHA512withRSA";
 
-    static KeyPair clientKeyPair = null;
-    static KeyPair serverKeyPair = null;
+    static KeyPair clientCipherKeyPair = null;
+    static KeyPair clientSignatureKeyPair = null;
+    static KeyPair serverCipherKeyPair = null;
+    static KeyPair serverSignatureKeyPair = null;
 
-    int encryptionMode = -1;
+    private static int encryptionMode = -1;
+    private static String keyStorePassword = null;
+
 
 
     /**
@@ -32,7 +36,7 @@ public class EchoServer {
      *
      */
     public KeyPair getKeyPairFromKeyStore(String alias, String keyStorePassword) throws Exception{
-        InputStream ins = new FileInputStream("Assignment2/Part2/cybr372.jks");
+        InputStream ins = new FileInputStream("Part2/cybr372.jks");
         KeyStore keyStore = KeyStore.getInstance("JKS");
         keyStore.load(ins, keyStorePassword.toCharArray());   //Keystore password
 
@@ -139,14 +143,11 @@ public class EchoServer {
      *
      */
     public void getKeyPairs() throws Exception {
-        //user enters keystore password
-        Scanner scan = new Scanner(System.in);
-        System.out.println("Enter keystore password: ");
-        String keyStorePassword = scan.next();
-
         //get the key pairs from key store
-        clientKeyPair = getKeyPairFromKeyStore("client", keyStorePassword);
-        serverKeyPair = getKeyPairFromKeyStore("server", keyStorePassword);
+        clientCipherKeyPair = getKeyPairFromKeyStore("ClientCipher", keyStorePassword);
+        clientSignatureKeyPair = getKeyPairFromKeyStore("ClientSignature", keyStorePassword);
+        serverCipherKeyPair = getKeyPairFromKeyStore("ServerCipher", keyStorePassword);
+        serverSignatureKeyPair = getKeyPairFromKeyStore("ServerSignature", keyStorePassword);
     }
 
     /**
@@ -171,11 +172,11 @@ public class EchoServer {
 
         while ((numBytes = in.read(receivingData)) != -1) {
             //read encryption mode from EncryptionMode.txt to determine how to decrypt and encrypt
-            FileInputStream fis = new FileInputStream("Assignment2/Part2/" + "EncryptionMode.txt");
+            FileInputStream fis = new FileInputStream("Part2/" + "EncryptionMode.txt");
             byte[] encryptionModeByte = new byte[1];
             fis.read(encryptionModeByte);
             fis.close();
-            int encryptionMode = encryptionModeByte[0];
+            encryptionMode = encryptionModeByte[0];
 
             //seperate data and signature
             System.arraycopy(receivingData, 0, message, 0, 256); //copy encrypted data into message[]
@@ -183,12 +184,12 @@ public class EchoServer {
 
             if (encryptionMode == 1) {
                 //decrypt
-                byte[] sendingData = decrypt(message, serverKeyPair.getPrivate()); //decrypt
-                verifySignature(message, clientSignature, clientKeyPair.getPublic()); //verify signature
+                byte[] sendingData = decrypt(message, serverCipherKeyPair.getPrivate()); //decrypt
+                verifySignature(message, clientSignature, clientSignatureKeyPair.getPublic()); //verify signature
 
                 //encrypt
-                sendingData = encryption(sendingData, clientKeyPair.getPublic()); //encrypt
-                byte[] serverSignature = sign(sendingData, (PrivateKey) serverKeyPair.getPrivate()); //sign
+                sendingData = encryption(sendingData, clientCipherKeyPair.getPublic()); //encrypt
+                byte[] serverSignature = sign(sendingData, (PrivateKey) serverSignatureKeyPair.getPrivate()); //sign
                 sendingData = concatenateDataAndSignature(sendingData, serverSignature); //concatenate data and signature into one array
 
                 //send data
@@ -197,12 +198,12 @@ public class EchoServer {
             }
             else if (encryptionMode == 2) {
                 //decrypt
-                byte[] sendingData = decrypt(message, (PrivateKey) serverKeyPair.getPrivate()); //decrypt
-                verifySignature(sendingData, clientSignature, clientKeyPair.getPublic()); //verify signature
+                byte[] sendingData = decrypt(message, (PrivateKey) serverCipherKeyPair.getPrivate()); //decrypt
+                verifySignature(sendingData, clientSignature, clientSignatureKeyPair.getPublic()); //verify signature
 
                 //encrypt
-                byte[] serverSignature = sign(sendingData, (PrivateKey) serverKeyPair.getPrivate()); //sign
-                sendingData = encryption(sendingData, clientKeyPair.getPublic()); //encrypt
+                byte[] serverSignature = sign(sendingData, (PrivateKey) serverSignatureKeyPair.getPrivate()); //sign
+                sendingData = encryption(sendingData, clientCipherKeyPair.getPublic()); //encrypt
                 sendingData = concatenateDataAndSignature(sendingData, serverSignature); //concatenate data and signature into one array
 
                 //send data
@@ -231,8 +232,15 @@ public class EchoServer {
     }
 
     public static void main(String[] args) throws Exception{
-        EchoServer server = new EchoServer();
-        server.start(4444);
+        try {
+            if(args.length > 0){
+                keyStorePassword = args[0];
+            }
+            EchoServer server = new EchoServer();
+            server.start(4444);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+        }
     }
 
 }
