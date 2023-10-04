@@ -1,6 +1,4 @@
-Part 2 should contain java files and class files, pre-compiled.
-
-To compile (if needed):
+To compile:
 
 `cd Part2`
 
@@ -10,7 +8,7 @@ To run:
 
 Open two terminals, one for the server and one for the client.
 
-`cd Assignment2` (if not already in the directory)
+`cd ..` OR `cd Assignment2`
 
 Server terminal:
 
